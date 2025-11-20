@@ -1,0 +1,2 @@
+-- create_tables.sql
+-- SQL to create staging and final tables

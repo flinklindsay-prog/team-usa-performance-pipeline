@@ -1,0 +1,2 @@
+-- medal_summary.sql
+-- SQL to aggregate medal counts by year and sport

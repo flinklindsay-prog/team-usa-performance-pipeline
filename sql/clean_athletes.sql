@@ -1,0 +1,2 @@
+-- clean_athletes.sql
+-- SQL for cleaning raw athlete data
