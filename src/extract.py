@@ -1,21 +1,61 @@
-# src/extract.py
+"""
+extract.py
+-----------
+Responsible for downloading or loading raw Olympic datasets.
+Outputs: raw/athlete_events.csv, raw/noc_regions.csv
+"""
+
+import os
 import pandas as pd
-from pathlib import Path
 
-RAW_PATH = Path("data/raw/athlete_events.csv")
+# Folder where raw files will be stored
+RAW_DIR = "raw"
 
-def load_raw_data(filepath: Path = RAW_PATH):
+def ensure_raw_dir():
     """
-    Load the raw Olympic dataset into a pandas DataFrame.
-    Returns DataFrame or raises FileNotFoundError.
+    Creates the raw data directory if it doesn't exist.
+    Prevents errors when saving files.
     """
-    if not filepath.exists():
-        raise FileNotFoundError(f"Raw data not found at {filepath.resolve()}")
-    df = pd.read_csv(filepath)
-    print(f"[extract] Loaded {len(df):,} rows from {filepath}")
-    return df
+    os.makedirs(RAW_DIR, exist_ok=True)
+
+
+def load_local_csv(file_path: str) -> pd.DataFrame:
+    """
+    Loads a CSV from disk and returns it as a Pandas DataFrame.
+    Includes a simple error check for missing files.
+
+    Parameters:
+        file_path (str): Path to a CSV file.
+
+    Returns:
+        pd.DataFrame: Loaded dataset.
+    """
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File not found: {file_path}")
+
+    return pd.read_csv(file_path)
+
+
+def extract_data():
+    """
+    Main extraction function:
+    - Ensures raw folder exists
+    - Loads athlete_events and NOC data locally
+    - Saves cleaned raw copies into /raw folder
+    """
+
+    ensure_raw_dir()
+
+    # Load raw CSVs (assumes the user downloaded them into /input)
+    athlete_events = load_local_csv("input/athlete_events.csv")
+    noc_regions = load_local_csv("input/noc_regions.csv")
+
+    # Save into raw directory for consistency in the pipeline
+    athlete_events.to_csv(f"{RAW_DIR}/athlete_events.csv", index=False)
+    noc_regions.to_csv(f"{RAW_DIR}/noc_regions.csv", index=False)
+
+    print("Raw Olympic datasets extracted successfully.")
+
 
 if __name__ == "__main__":
-    df = load_raw_data()
-    print(df.columns.tolist())
-    print(df.head(3))
+    extract_data()

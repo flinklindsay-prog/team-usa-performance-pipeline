@@ -1,63 +1,117 @@
-# src/transform.py
+"""
+transform.py
+-------------
+Cleans and transforms the raw Olympic datasets.
+Outputs: processed/olympics_cleaned.csv
+"""
+
+import os
 import pandas as pd
-from pathlib import Path
-from extract import load_raw_data
 
-PROCESSED_DIR = Path("data/processed")
-PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
-OUT_PATH = PROCESSED_DIR / "clean_athletes.csv"
+RAW_DIR = "raw"
+PROCESSED_DIR = "processed"
 
-def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
-    # strip whitespace, lowercase, replace spaces with underscore
-    df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
+
+def ensure_processed_dir():
+    """
+    Creates the processed data directory if it doesn't exist.
+    """
+    os.makedirs(PROCESSED_DIR, exist_ok=True)
+
+
+def load_raw_data() -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Loads the raw Olympic datasets from the /raw directory.
+
+    Returns:
+        (pd.DataFrame, pd.DataFrame): athlete_events, noc_regions
+    """
+
+    athlete_events = pd.read_csv(f"{RAW_DIR}/athlete_events.csv")
+    noc_regions = pd.read_csv(f"{RAW_DIR}/noc_regions.csv")
+
+    return athlete_events, noc_regions
+
+
+def clean_athlete_events(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Applies cleaning steps to athlete_events.csv:
+    - Standardizes missing values
+    - Converts data types
+    - Handles inconsistent text fields
+
+    Parameters:
+        df (pd.DataFrame): Raw athlete events dataset
+
+    Returns:
+        pd.DataFrame: Cleaned dataset
+    """
+
+    # Replace known missing markers
+    df.replace({"NA": None, "N/A": None, "": None}, inplace=True)
+
+    # Convert numeric columns safely
+    numeric_cols = ["Age", "Height", "Weight", "Year"]
+    for col in numeric_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    # Standardize string columns
+    df["Name"] = df["Name"].str.strip()
+    df["Sex"] = df["Sex"].str.upper()
+    df["Season"] = df["Season"].str.title()  # Summer/Winter
+    df["City"] = df["City"].str.title()
+
     return df
 
-def standardize_medal(df: pd.DataFrame) -> pd.DataFrame:
-    # convert empty string / NaN to 'None' and capitalize
-    df["medal"] = df["medal"].fillna("None")
-    df["medal"] = df["medal"].replace("", "None")
-    # ensure standardized capitalization
-    df["medal"] = df["medal"].apply(lambda x: x.title() if isinstance(x, str) else x)
-    return df
 
-def coerce_types(df: pd.DataFrame) -> pd.DataFrame:
-    # Year to int, Age to numeric (coerce)
-    df["year"] = pd.to_numeric(df["year"], errors="coerce").astype("Int64")
-    df["age"] = pd.to_numeric(df["age"], errors="coerce").astype("Float64")
-    return df
+def merge_noc_regions(athletes: pd.DataFrame, noc: pd.DataFrame) -> pd.DataFrame:
+    """
+    Merges athlete data with NOC region information.
+    Adds a 'Region' column for each athlete.
 
-def filter_team_usa(df: pd.DataFrame) -> pd.DataFrame:
-    # Some datasets use 'team' or 'noc' columns; use NOC if present
-    if "noc" in df.columns:
-        df_usa = df[df["noc"] == "USA"].copy()
-    else:
-        # fallback: team column containing 'United States' or 'USA'
-        df_usa = df[df["team"].astype(str).str.contains("United State|USA", na=False)].copy()
-    return df_usa
+    Parameters:
+        athletes (pd.DataFrame): Clean athlete events data
+        noc (pd.DataFrame): NOC region mappings
 
-def select_and_order_columns(df: pd.DataFrame) -> pd.DataFrame:
-    # choose relevant columns for modeling/ad-hoc analysis
-    cols = [
-        "id", "name", "sex", "age", "height", "weight", "team", "noc",
-        "games", "year", "season", "city", "sport", "event", "medal"
-    ]
-    available = [c for c in cols if c in df.columns]
-    return df[available]
+    Returns:
+        pd.DataFrame: Merged dataset
+    """
 
-def run_transform_and_save(out_path=OUT_PATH):
-    df = load_raw_data()
-    df = normalize_columns(df)
-    df = filter_team_usa(df)
-    df = standardize_medal(df)
-    df = coerce_types(df)
-    df = select_and_order_columns(df)
-    # optional: ensure medal values are exactly one of Gold/Silver/Bronze/None
-    df["medal"] = df["medal"].where(df["medal"].isin(["Gold", "Silver", "Bronze", "None"]), "None")
-    df.to_csv(out_path, index=False)
-    print(f"[transform] Wrote {len(df):,} rows to {out_path}")
-    return df
+    merged = athletes.merge(
+        noc,
+        how="left",
+        left_on="NOC",
+        right_on="NOC"  # ensures NOC codes match
+    )
+
+    return merged
+
+
+def transform_data():
+    """
+    Main transformation function:
+    - Loads raw data
+    - Cleans athlete events dataset
+    - Joins NOC region info
+    - Saves final processed file
+    """
+
+    ensure_processed_dir()
+
+    # Load source datasets
+    athlete_events, noc_regions = load_raw_data()
+
+    # Clean main table
+    athlete_clean = clean_athlete_events(athlete_events)
+
+    # Merge NOC data
+    final_df = merge_noc_regions(athlete_clean, noc_regions)
+
+    # Save processed version
+    final_df.to_csv(f"{PROCESSED_DIR}/olympics_cleaned.csv", index=False)
+
+    print("Olympic dataset transformed and saved successfully.")
+
 
 if __name__ == "__main__":
-    df_clean = run_transform_and_save()
-    print(df_clean.head())
-    print(df_clean.dtypes)
+    transform_data()
