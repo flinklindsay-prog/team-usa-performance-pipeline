@@ -1,18 +1,21 @@
-# extract.py
+# src/extract.py
 import pandas as pd
+from pathlib import Path
 
-def load_raw_data(filepath="data/raw/athlete_events.csv"):
+RAW_PATH = Path("data/raw/athlete_events.csv")
+
+def load_raw_data(filepath: Path = RAW_PATH):
     """
-    Load the raw Olympic dataset into a DataFrame.
+    Load the raw Olympic dataset into a pandas DataFrame.
+    Returns DataFrame or raises FileNotFoundError.
     """
-    try:
-        df = pd.read_csv(filepath)
-        print(f"Loaded {len(df)} rows from {filepath}")
-        return df
-    except FileNotFoundError:
-        print(f"File not found: {filepath}")
-        return None
+    if not filepath.exists():
+        raise FileNotFoundError(f"Raw data not found at {filepath.resolve()}")
+    df = pd.read_csv(filepath)
+    print(f"[extract] Loaded {len(df):,} rows from {filepath}")
+    return df
 
 if __name__ == "__main__":
     df = load_raw_data()
-    print(df.head())
+    print(df.columns.tolist())
+    print(df.head(3))
