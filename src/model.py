@@ -61,7 +61,7 @@ def compute_aggregations(df: pd.DataFrame) -> pd.DataFrame:
 
     # Group rows into year/sport buckets and compute metrics inside each group
     grouped = (
-        df.groupby(["year", "sport"], dropna=True)
+        df.groupby(["year", "sport", "season"], dropna=True)
         .agg(
             # Number of unique athletes participating in that sport/year
             total_athletes=("name", "nunique"),
